@@ -115,3 +115,37 @@ plot_ordination(ps.rarefied, ordination, color="country") +
   theme_classic() +
   facet_wrap(~gender) +
   theme(strip.background = element_blank())
+
+
+# Does consumption of hydrosylated formula reduce allergies (including milk) in children of varying ages and backgrounds?
+
+allergies = metadata %>% 
+  mutate(Allergies = allergy_milk | allergy_egg | allergy_peanut | allergy_dustmite | allergy_cat | allergy_dog | allergy_birch | allergy_timothy) %>% 
+  select(Allergies, hydrosylated_formula) %>% 
+  filter(!is.na(Allergies))
+
+allergies.table <- table(allergies) # Contingency table for observed allergies
+
+# Chi squared test
+chi.allergies <- chisq.test(allergies.table)
+chi.allergies$expected
+
+chi.allergies
+
+# Tidy data frame for actual counts
+totals.obs <- as.data.frame(allergies.table) %>% 
+  mutate(ob.exp = "observed") # Add categorical column
+
+# Tidy data frame for expected counts
+totals.exp <- as.data.frame(chi.allergies$expected) %>% 
+  mutate(Allergies = rownames(chi.allergies$expected)) %>% 
+  pivot_longer(1:2, names_to = "hydrosylated_formula", values_to = "Freq") %>% 
+  mutate(ob.exp = "expected")
+
+totals.all <- bind_rows(totals.obs, totals.exp)
+
+# Plot
+totals.all %>% ggplot(aes(x = ob.exp, y = Freq, fill = hydrosylated_formula)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~Allergies) +
+  theme_bw()
