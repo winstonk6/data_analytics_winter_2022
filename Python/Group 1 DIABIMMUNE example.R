@@ -1,5 +1,5 @@
 # Set working directory
-setwd("C:/OneDrive/OneDrive - Hunter - CUNY/Folder Name")
+setwd("C:/OneDrive/OneDrive - Hunter - CUNY/BIOL 48002 Intro to Experimental Biology/Microbiome analysis")
 
 # Load libraries
 p1 <- c("tidyverse", "vegan", "BiocManager")
@@ -125,6 +125,7 @@ allergies = metadata %>%
   filter(!is.na(Allergies))
 
 allergies.table <- table(allergies) # Contingency table for observed allergies
+allergies.mat <- as.matrix(allergies.table)
 
 # Chi squared test
 chi.allergies <- chisq.test(allergies.table)
@@ -145,7 +146,7 @@ totals.exp <- as.data.frame(chi.allergies$expected) %>%
 totals.all <- bind_rows(totals.obs, totals.exp)
 
 # Plot
-totals.all %>% ggplot(aes(x = ob.exp, y = Freq, fill = hydrosylated_formula)) +
+totals.all %>% ggplot(aes(x = hydrosylated_formula, y = Freq, fill = ob.exp)) +
   geom_bar(stat = "identity", position = "dodge") +
   facet_wrap(~Allergies) +
   theme_bw()
