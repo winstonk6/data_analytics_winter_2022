@@ -18,6 +18,7 @@ rm(p1, p2, load_package)
 # Load 16S counts
 data_16s <- read.table("https://diabimmune.broadinstitute.org/diabimmune/uploads/attachments/69/diabimmune_karelia_16s_otu_table.txt",
                        sep = "\t", header = T, comment.char = "", check.names = FALSE)
+#data_16s <- read.table(file = "diabimmune_karelia_16s_otu_table.txt", sep = "\t", header = T, comment.char = "", check.names = FALSE)
 
 # Filter out rows that aggregate other rows
 data_16s_all_taxa <- data_16s$sample # Get taxa names
@@ -36,6 +37,7 @@ rm(data_16s_otu, tax, data_16s_all_taxa)
 
 # Load metadata
 load(url("http://diverge.hunter.cuny.edu/~weigang/datasets-bio47120/DIABIMMUNE_Karelia_metadata.RData"))
+#load("DIABIMMUNE_Karelia_metadata.RData")
 
 # Remove rows from metadata where the SampleID is not in the OTU table
 SampleID <- colnames(data_16s) # The otu table's columns are the SampleIDs
@@ -94,6 +96,7 @@ set.seed(111)
 ps.rarefied = rarefy_even_depth(ps, rngseed=1, sample.size=200, replace=F)
 
 
+
 # Alpha diversity metrics assess the species diversity within the ecosystems, telling you how diverse a community is.
 plot_richness(ps.rarefied, x="allergy_peanut", measures=c("Observed", "Shannon")) +
   geom_boxplot() +
@@ -115,6 +118,8 @@ plot_ordination(ps.rarefied, ordination, color="country") +
   theme_classic() +
   facet_wrap(~gender) +
   theme(strip.background = element_blank())
+
+
 
 
 # Does consumption of hydrosylated formula reduce allergies (including milk) in children of varying ages and backgrounds?
@@ -150,3 +155,52 @@ totals.all %>% ggplot(aes(x = hydrosylated_formula, y = Freq, fill = ob.exp)) +
   geom_bar(stat = "identity", position = "dodge") +
   facet_wrap(~Allergies) +
   theme_bw()
+
+
+
+
+
+# Abundance bar plot of 30 random samples
+
+# Get 10 samples from each country in the metadata
+fin_samples <- metadata %>% filter(country == "FIN") %>% sample_n(10)
+est_samples <- metadata %>% filter(country == "EST") %>% sample_n(10)
+rus_samples <- metadata %>% filter(country == "RUS") %>% sample_n(10)
+metadata_30 <- bind_rows(fin_samples, est_samples, rus_samples)
+
+# 30 samples abundance data
+data_30 <- data_16s %>% select(rownames(metadata_30))
+
+# Make new ps object
+SAMPLE1 <- sample_data(metadata_30)
+OTU1 = otu_table(as.matrix(data_30), taxa_are_rows = TRUE)
+ps1 <- phyloseq(OTU1, TAX, SAMPLE1)
+
+
+ps1.rel = transform_sample_counts(ps1, function(x) x/sum(x)*100)
+# agglomerate taxa
+glom <- tax_glom(ps1.rel, taxrank = 'Phylum', NArm = FALSE)
+ps1.melt <- psmelt(glom)
+# change to character for easy-adjusted level
+ps1.melt$Phylum <- as.character(ps1.melt$Phylum)
+
+ps1.melt <- ps1.melt %>%
+  group_by(country, Phylum) %>%
+  mutate(median=median(Abundance))
+# select group median > 1
+keep <- unique(ps1.melt$Phylum[ps1.melt$median > 1])
+ps1.melt$Phylum[!(ps1.melt$Phylum %in% keep)] <- "< 1%"
+#to get the same rows together
+ps1.melt_sum <- ps1.melt %>%
+  group_by(Sample,country,Phylum) %>%
+  summarise(Abundance=sum(Abundance))
+
+ggplot(ps1.melt_sum, aes(x = Sample, y = Abundance, fill = Phylum)) + 
+  geom_bar(stat = "identity", aes(fill=Phylum)) + 
+  labs(x="", y="%") +
+  facet_wrap(~country, scales= "free_x", nrow=1) +
+  theme_classic() + 
+  theme(strip.background = element_blank(), 
+        axis.text.x.bottom = element_text(angle = -90))
+
+
